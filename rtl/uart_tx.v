@@ -20,6 +20,7 @@ module uart_tx(
     input clk,
     input send,
     input [7:0] data,
+    output reg [7:0] addr,
     output reg notif,
     output reg out
     );
@@ -44,15 +45,26 @@ module uart_tx(
         case (state)
         s_idle:
             begin
-                notif <= 1'b0;
                 out <= 1'b1;
                 if (send == 1'b1)
                     begin
+		if (clock_count < cycles-1)
+		begin
+			clock_count <= clock_count+1;
+                        state <= s_idle;
+		end
+		else
+		begin
+                	notif <= 1'b0;
                         clock_count <= 0;
+                        bit_index <= 0;
+			addr <= addr < 5 ? addr + 1 : 0;
                         state <= s_start_bit;
+		end
                     end
                 else
                     begin
+               		notif <= 1'b0;
                         state <= s_idle;
                     end
             end
@@ -83,7 +95,7 @@ module uart_tx(
                 else
                     begin
                         clock_count <= 0;
-                        if (bit_index > 7)
+                        if (bit_index < 7)
                             begin
                                 bit_index <= bit_index+1;
                                 state <= s_data_bit;

@@ -25,6 +25,7 @@ module uart_rx(
     // See https://stackoverflow.com/a/5360623
     output reg notif,
     output reg [7:0] data,
+    output reg [7:0] addr,
     output reg send
     );
 
@@ -42,7 +43,7 @@ module uart_rx(
     parameter cycles = 10416;
 
     integer clock_count = 0;
-    integer bit_index = 7;
+    integer bit_index = 0;
     
     always @(posedge clk) begin
         case (state)
@@ -52,6 +53,7 @@ module uart_rx(
                 send <= 1'b0;                
                 if (in == 1'b0)
                     begin
+			addr <= addr < 5 ? addr + 1 : 0;
                         state <= s_start_bit;
                     end
                 else
@@ -87,14 +89,14 @@ module uart_rx(
                 else
                     begin
                         clock_count <= 0;
-                        if (bit_index > 0)
+                        if (bit_index < 7)
                             begin
-                                bit_index <= bit_index-1;
+                                bit_index <= bit_index+1;
                                 state <= s_data_bit;
                             end
                         else
                             begin
-                                bit_index <= 7;
+                                bit_index <= 0;
                                 state <= s_stop_bit;
                             end
                     end
@@ -102,7 +104,8 @@ module uart_rx(
         s_stop_bit:
             begin
                 notif <= 1'b1;
-                send <= 1'b0;
+                // Assert send after data has been read.
+                send <= 1'b1;
                 if (clock_count < cycles-1)
                     begin
                         clock_count <= clock_count+1;
@@ -117,8 +120,7 @@ module uart_rx(
         s_cleanup:
             begin
                 notif <= 1'b1;
-                // Assert send after data has been read.
-                send <= 1'b1;
+                send <= 1'b0;
                 state <= s_idle;
             end
         default:
